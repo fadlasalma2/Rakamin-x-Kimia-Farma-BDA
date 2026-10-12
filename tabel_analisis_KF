@@ -1,0 +1,50 @@
+SELECT
+  ts.transaction_id,
+  ts.date,
+  ts.branch_id,
+  kc.branch_name,
+  kc.kota,
+  kc.provinsi,
+  kc.rating AS rating_cabang,
+  ts.customer_name,
+  ts.product_id,
+  pd.product_name,
+  ts.price AS actual_price,
+  ts.discount_percentage,
+  ts.rating AS rating_transaksi,
+  -- Persentase Gross Laba
+  (
+    CASE
+      WHEN ts.price <= 50000 THEN 0.10
+      WHEN ts.price > 50000 AND ts.price <= 100000 THEN 0.15
+      WHEN ts.price > 100000 AND ts.price <= 300000 THEN 0.20
+      WHEN ts.price > 300000 AND ts.price <= 500000 THEN 0.25
+      WHEN ts.price > 500000 THEN 0.30
+      ELSE 0
+      END)
+    AS persentase_gross_laba,
+  -- Nett Sales
+  ts.price * (1 - (ts.discount_percentage / 100)) AS nett_sales,
+  -- Nett Profit
+  ts.price * (
+    CASE
+      WHEN ts.price <= 50000 THEN 0.10
+      WHEN ts.price > 50000 AND ts.price <= 100000 THEN 0.15
+      WHEN ts.price > 100000 AND ts.price <= 300000 THEN 0.20
+      WHEN ts.price > 300000 AND ts.price <= 500000 THEN 0.25
+      WHEN ts.price > 500000 THEN 0.30
+      ELSE 0
+      END)
+    AS nett_profit
+FROM `rakamin-kf-analytics-511304.kimia_farma.kf_final_transaction` AS ts
+LEFT JOIN `rakamin-kf-analytics-511304.kimia_farma.kf_product` AS pd
+  ON ts.product_id = pd.product_id
+LEFT JOIN
+  (
+    SELECT branch_id, product_id, SUM(opname_stock) AS total_opname_stock
+    FROM `rakamin-kf-analytics-511304.kimia_farma.kf_inventory`
+    GROUP BY 1, 2
+  ) AS iv
+  ON ts.product_id = iv.product_id AND ts.branch_id = iv.branch_id
+LEFT JOIN `rakamin-kf-analytics-511304.kimia_farma.kf_kantor_cabang` AS kc
+  ON ts.branch_id = kc.branch_id
